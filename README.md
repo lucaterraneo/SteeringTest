@@ -1,47 +1,47 @@
 # Steering Test
 
-Firmware **preliminary** per il banco sterzo Versive.
+**Preliminary** firmware for the Versive steering test stand.
 
-Tre valvole pneumatiche (sterzo, resistenza, switch) su Arduino **Opta** + espansione **Digital Solid State (SSR)**.
+Three pneumatic valves (steering, resistance, switch) on an Arduino **Opta** + **Digital Solid State (SSR)** expansion.
 
 [![Arduino Opta](https://img.shields.io/badge/Arduino-Opta-00979D?logo=arduino&logoColor=white)](https://docs.arduino.cc/hardware/opta/)
 [![C++](https://img.shields.io/badge/C%2B%2B-firmware-00599C?logo=cplusplus&logoColor=white)](#)
-[![Status](https://img.shields.io/badge/status-preliminary%20test-yellow)](#limiti-attuali)
+[![Status](https://img.shields.io/badge/status-preliminary%20test-yellow)](#current-limits)
 
-Due modi d’uso:
+Two ways to use it:
 
-1. **Test valvola** — click sul pulsante USER (stato IDLE)
-2. **Ciclo macchina** — programma in `executeRunningCommand()` (stato RUNNING)
+1. **Valve test** — click the USER button (IDLE state)
+2. **Machine cycle** — program in `executeRunningCommand()` (RUNNING state)
 
 > [!IMPORTANT]
-> Dopo ogni modifica: **Verifica → Carica** sulla Opta.  
-> `Config.h` è compilato nel firmware: reset della scheda **non** applica i nuovi valori.
+> After every change: **Verify → Upload** to the Opta.  
+> `Config.h` is compiled into the firmware: resetting the board does **not** apply the new values.
 
 ---
 
-## Indice
+## Contents
 
-- [Architettura](#architettura)
+- [Architecture](#architecture)
 - [Hardware](#hardware)
-- [Stati della macchina](#stati-della-macchina)
+- [Machine states](#machine-states)
 - [Config.h](#configh)
-- [Test con il pulsante USER](#test-con-il-pulsante-user)
-- [Programma RUNNING](#programma-running)
-- [Build e upload](#build-e-upload)
-- [Limiti attuali](#limiti-attuali)
+- [Test with the USER button](#test-with-the-user-button)
+- [RUNNING program](#running-program)
+- [Build and upload](#build-and-upload)
+- [Current limits](#current-limits)
 
 ---
 
-## Architettura
+## Architecture
 
-Cambi quasi solo **due file**: `Config.h` (pin e tempi) e `PneumaticController.cpp` (ciclo RUNNING).
+You almost only change **two files**: `Config.h` (pins and timings) and `PneumaticController.cpp` (RUNNING cycle).
 
 ```text
 SteeringTest/
-├── SteeringTest.ino          # setup / loop, wiring oggetti
-├── Config.h                  # pin, tempi, mappa click USER
-├── DoubleSolenoid.h/.cpp     # una valvola = due SSR
-├── ButtonHandler.h/.cpp      # pulsanti, LED, FSM
+├── SteeringTest.ino          # setup / loop, object wiring
+├── Config.h                  # pins, timings, USER click map
+├── DoubleSolenoid.h/.cpp     # one valve = two SSRs
+├── ButtonHandler.h/.cpp      # buttons, LED, FSM
 ├── PneumaticController.h/.cpp
 └── README.md
 ```
@@ -49,9 +49,8 @@ SteeringTest/
 ```mermaid
 flowchart LR
   subgraph HMI
-    USER[Pulsante USER]
-    START[START IDEC 24V]
-    LED[LED START]
+    USER[User button]
+    START[Start button]
   end
 
   subgraph FW["Firmware"]
@@ -60,7 +59,7 @@ flowchart LR
     CFG[Config.h]
   end
 
-  subgraph VALVE["Valvole SSR"]
+  subgraph VALVE["SSR valves"]
     ST[Steering]
     RE[Resistance]
     SW[Switch]
@@ -68,8 +67,7 @@ flowchart LR
 
   USER --> BH
   START --> BH
-  BH --> LED
-  BH -->|"click 1–6"| PC
+  BH -->|"clicks 1–6"| PC
   BH -->|"RUNNING"| PC
   CFG -.-> BH
   CFG -.-> PC
@@ -78,49 +76,49 @@ flowchart LR
   PC --> SW
 ```
 
-| Modulo | Ruolo |
+| Module | Role |
 |---|---|
-| `SteeringTest.ino` | Composition root: pin, `setup()`, `loop()` |
-| `Config.h` | Costanti (non è una classe) |
+| `SteeringTest.ino` | Composition root: pins, `setup()`, `loop()` |
+| `Config.h` | Constants (it is not a class) |
 | `DoubleSolenoid` | `extend()` / `retract()` / `stop()` |
-| `ButtonHandler` | Ingressi + LED + stati IDLE / CALIBRATION / RUNNING |
-| `PneumaticController` | Test USER + **programma di banco** |
+| `ButtonHandler` | Inputs + LED + IDLE / CALIBRATION / RUNNING states |
+| `PneumaticController` | USER test + **stand program** |
 
 ---
 
 ## Hardware
 
-Scheda: **Arduino Opta** (`arduino:mbed_opta:opta`)  
-Libreria: [Arduino_Opta_Blueprint](https://github.com/arduino-libraries/Arduino_Opta_Blueprint) (`OptaBlue.h`)  
-Espansione: prima Digital Solid State → `OptaController.getExpansion(0)`
+Board: **Arduino Opta** (`arduino:mbed_opta:opta`)  
+Library: [Arduino_Opta_Blueprint](https://github.com/arduino-libraries/Arduino_Opta_Blueprint) (`OptaBlue.h`)  
+Expansion: first Digital Solid State → `OptaController.getExpansion(0)`
 
-Indici software: **0 = primo SSR**. Il LED START è l’SSR **fisico 7** = indice **6**.
+Software indices: **0 = first SSR**. The START LED is physical SSR **7** = index **6**.
 
-| Funzione | Pin / SSR | Note |
+| Function | Pin / SSR | Notes |
 |---|---|---|
 | Steering A / B | 0, 1 | `extend` / `retract` |
 | Resistance A / B | 2, 3 | `extend` / `retract` |
 | Switch A / B | 4, 5 | `extend` / `retract` |
-| LED START | 6 | SSR fisico 7 |
-| Pulsante USER | `BTN_USER` | pull-up, attivo basso |
-| START IDEC | `A0` (L1) | 24 V quando premuto |
-| Sensore calibrazione | `A1` | cablato, **ancora simulato nel codice** |
+| START LED | 6 | physical SSR 7 |
+| USER button | `BTN_USER` | pull-up, active low |
+| START IDEC | `A0` (L1) | 24 V when pressed |
+| Calibration sensor | `A1` | wired, **still simulated in code** |
 
-Su ogni valvola:
+On each valve:
 
-| Metodo | Bobine |
+| Method | Coils |
 |---|---|
 | `extend()` | A ON, B OFF |
 | `retract()` | A OFF, B ON |
 | `stop()` | A OFF, B OFF |
 
-Se una valvola si muove al contrario, in `Config.h` **scambia A e B** di quella coppia.
+If a valve moves the wrong way, in `Config.h` **swap A and B** of that pair.
 
 ---
 
-## Stati della macchina
+## Machine states
 
-Il pulsante **START** avanza di uno stato a ogni pressione:
+The **START** button advances one state on each press:
 
 ```mermaid
 stateDiagram-v2
@@ -130,27 +128,27 @@ stateDiagram-v2
   RUNNING --> IDLE: START
 ```
 
-| Stato | LED START | Comportamento |
+| State | START LED | Behavior |
 |---|---|---|
-| **IDLE** | spento | Test USER. Nessun ciclo macchina |
-| **CALIBRATION** | lampeggia | Attende il secondo START |
-| **RUNNING** | fisso acceso | `loop()` chiama `executeRunningCommand()` |
+| **IDLE** | off | USER test. No machine cycle |
+| **CALIBRATION** | blinking | Waits for the second START |
+| **RUNNING** | steady on | `loop()` calls `executeRunningCommand()` |
 
-Serial Monitor a **115200** baud: messaggi tipo `SYSTEM -> RUNNING`.
+Serial Monitor at **115200** baud: messages such as `SYSTEM -> RUNNING`.
 
 > [!WARNING]
-> In calibrazione il sensore A1 è **finto** (`calibrationReached = true` in `ButtonHandler.cpp`).  
-> La lettura reale è commentata. Quando il finecorsa è cablato, togli il fake.
+> During calibration the A1 sensor is **faked** (`calibrationReached = true` in `ButtonHandler.cpp`).  
+> The real read is commented out. When the limit switch is wired, remove the fake.
 
 ---
 
 ## Config.h
 
-`Config` è un **namespace** di costanti, non un oggetto. Si usa così: `Config::Pins::STEERING_A`.
+`Config` is a **namespace** of constants, not an object. Use it like this: `Config::Pins::STEERING_A`.
 
-Apri questo file per cablaggio e tempi. **Non** ci va il ciclo pneumatico RUNNING.
+Open this file for wiring and timings. The RUNNING pneumatic cycle does **not** go here.
 
-### Pin
+### Pins
 
 ```cpp
 namespace Pins {
@@ -160,60 +158,60 @@ namespace Pins {
     constexpr int RESISTANCE_B  = 3;
     constexpr int SWITCH_A      = 4;
     constexpr int SWITCH_B      = 5;
-    constexpr int START_LED     = 6;   // SSR fisico 7
+    constexpr int START_LED     = 6;   // physical SSR 7
     constexpr int USER_BUTTON   = BTN_USER;
     constexpr int START_BUTTON  = A0;
     constexpr int CALIBRATION   = A1;
 }
 ```
 
-### Tempi
+### Timings
 
-| Costante | Default | Uso |
+| Constant | Default | Use |
 |---|---|---|
-| `DEBOUNCE_MS` | 30 | antirimbalzo |
-| `USER_CLICK_WINDOW_MS` | 3000 | attesa dopo l’ultimo click USER |
-| `START_LED_BLINK_MS` | 500 | lampeggio in CALIBRATION |
-| `SWITCH_PULSE_MS` | 500 | impulso switch nei **test** click 5 e 6 |
+| `DEBOUNCE_MS` | 30 | debounce |
+| `USER_CLICK_WINDOW_MS` | 3000 | wait after the last USER click |
+| `START_LED_BLINK_MS` | 500 | blink in CALIBRATION |
+| `SWITCH_PULSE_MS` | 500 | switch pulse in **tests** clicks 5 and 6 |
 | `SerialPort::BAUD` | 115200 | Serial Monitor |
 
-Le pause del **ciclo RUNNING** si scrivono nel metodo, non qui (salvo riusare `SWITCH_PULSE_MS`).
+Pauses in the **RUNNING cycle** are written in the method, not here (unless you reuse `SWITCH_PULSE_MS`).
 
-### Mappa click USER
+### USER click map
 
 `CMD_STEERING_RIGHT = 1`, … `CMD_SWITCH_OFF = 6`.  
-Cambia i numeri solo se vuoi un altro conteggio. La logica resta in `executeTestCommand()`.
+Change the numbers only if you want a different count. The logic stays in `executeTestCommand()`.
 
 ---
 
-## Test con il pulsante USER
+## Test with the USER button
 
-Utile in **IDLE**. In RUNNING il ciclo continua a comandare le valvole e sovrascrive il test.
+Useful in **IDLE**. In RUNNING the cycle keeps commanding the valves and overwrites the test.
 
-1. Premi USER **N** volte  
-2. Non premere per **3 s** (`USER_CLICK_WINDOW_MS`)  
-3. Parte il comando N  
+1. Press USER **N** times  
+2. Do not press for **3 s** (`USER_CLICK_WINDOW_MS`)  
+3. Command N starts  
 
-| Click | Azione | Codice |
+| Clicks | Action | Code |
 |---|---|---|
-| 1 | sterzo destra | `steering->extend()` |
-| 2 | sterzo sinistra | `steering->retract()` |
-| 3 | resistenza sinistra | `resistance->extend()` |
-| 4 | resistenza destra | `resistance->retract()` |
-| 5 | switch ON | impulso `extend` → `stop` |
-| 6 | switch OFF | impulso `retract` → `stop` |
-| altro | emergenza software | `stopAll()` |
+| 1 | steering right | `steering->extend()` |
+| 2 | steering left | `steering->retract()` |
+| 3 | resistance left | `resistance->extend()` |
+| 4 | resistance right | `resistance->retract()` |
+| 5 | switch ON | `extend` pulse → `stop` |
+| 6 | switch OFF | `retract` pulse → `stop` |
+| other | software emergency | `stopAll()` |
 
-Click 5 e 6 usano `delay(Config::Timing::SWITCH_PULSE_MS)`.
+Clicks 5 and 6 use `delay(Config::Timing::SWITCH_PULSE_MS)`.
 
 ---
 
-## Programma RUNNING
+## RUNNING program
 
 **File:** `PneumaticController.cpp`  
-**Funzione:** `executeRunningCommand()`
+**Function:** `executeRunningCommand()`
 
-Questa è l’unica funzione da editare per il ciclo di banco.
+This is the only function to edit for the stand cycle.
 
 ```cpp
 void PneumaticController::executeRunningCommand() {
@@ -226,16 +224,16 @@ void PneumaticController::executeRunningCommand() {
 ```
 
 > [!NOTE]
-> In RUNNING questa funzione è chiamata **ad ogni giro di `loop()`**.  
-> Non è “esegui una volta”: tiene le posizioni (o ripete la sequenza) finché resti in RUNNING.
+> In RUNNING this function is called **on every `loop()` turn**.  
+> It is not “run once”: it holds the positions (or repeats the sequence) for as long as you stay in RUNNING.
 
-### Valvole disponibili
+### Available valves
 
 - `steering`
 - `resistance`
 - `switchValve`
 
-### Esempio — posa fissa
+### Example — fixed pose
 
 ```cpp
 void PneumaticController::executeRunningCommand() {
@@ -245,7 +243,7 @@ void PneumaticController::executeRunningCommand() {
 }
 ```
 
-### Esempio — sequenza con pause
+### Example — sequence with pauses
 
 ```cpp
 void PneumaticController::executeRunningCommand() {
@@ -266,24 +264,24 @@ void PneumaticController::executeRunningCommand() {
 }
 ```
 
-Finita la sequenza, **ricomincia da capo** finché sei in RUNNING. START di nuovo → IDLE.
+When the sequence ends, it **starts over** for as long as you are in RUNNING. START again → IDLE.
 
 > [!CAUTION]
-> `delay()` blocca pulsanti e LED per tutta la pausa. Va bene per un test preliminare.  
-> In IDLE le valvole **non** vanno in `stop()` da sole: restano sull’ultimo comando.
+> `delay()` blocks buttons and the LED for the whole pause. Fine for a preliminary test.  
+> In IDLE the valves do **not** go to `stop()` on their own: they stay on the last command.
 
-`Serial.println("MACHINE RUNNING..")` a ogni loop satura il Monitor: commentalo se usi una posa fissa senza `delay`.
+`Serial.println("MACHINE RUNNING..")` on every loop floods the Monitor: comment it out if you use a fixed pose without `delay`.
 
 ---
 
-## Build e upload
+## Build and upload
 
 **Arduino IDE 2**
 
-1. Apri la cartella sketch `SteeringTest` (il `.ino` deve avere lo stesso nome della cartella)
-2. Scheda: **Arduino Opta**
-3. Installa la libreria **Arduino_Opta_Blueprint**
-4. Porta della Opta → **Carica**
+1. Open the `SteeringTest` sketch folder (the `.ino` must have the same name as the folder)
+2. Board: **Arduino Opta**
+3. Install the **Arduino_Opta_Blueprint** library
+4. Opta port → **Upload**
 
 **arduino-cli**
 
@@ -292,17 +290,17 @@ arduino-cli compile --fqbn arduino:mbed_opta:opta SteeringTest
 arduino-cli upload  --fqbn arduino:mbed_opta:opta -p /dev/ttyACM0 SteeringTest
 ```
 
-Su macOS la porta è spesso `/dev/cu.usbmodem*`.
+On macOS the port is often `/dev/cu.usbmodem*`.
 
 ---
 
-## Limiti attuali
+## Current limits
 
-Funziona come **test preliminare**. Non c’è ancora:
+It works as a **preliminary test**. Not yet present:
 
-- [ ] Finecorsa calibrazione A1 reale
-- [ ] `stopAll()` automatico sul ritorno in IDLE
-- [ ] Sequenza RUNNING a tabella in Config (volutamente nel metodo, più diretto)
-- [ ] Attese non bloccanti (`millis`) nel ciclo macchina
+- [ ] Real A1 calibration limit switch
+- [ ] Automatic `stopAll()` when returning to IDLE
+- [ ] RUNNING sequence as a table in Config (kept in the method on purpose, more direct)
+- [ ] Non-blocking waits (`millis`) in the machine cycle
 
-In `PneumaticController.h` restano dichiarati `update()` e `handleSwitchPulse()` non implementati: non sono chiamati, non bloccano la compilazione.
+`update()` and `handleSwitchPulse()` are still declared in `PneumaticController.h` and not implemented: they are not called, and they do not block compilation.

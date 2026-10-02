@@ -4,15 +4,15 @@
 #include <Arduino.h>
 
 // ============================================================
-//  Cambia i parametri da qui. Non serve toccare gli altri file.
-//  Indici SSR: 0 = primo relè dell'espansione, 6 = SSR 7.
+//  Change the parameters here. No need to touch the other files.
+//  SSR indices: 0 = first relay of the expansion, 6 = SSR 7.
 // ============================================================
 
 namespace Config {
 
     namespace Pins {
 
-        // Valvole (coppia SSR: A = extend, B = retract)
+        // Valves (SSR pair: A = extend, B = retract)
         constexpr int STEERING_A    = 0;
         constexpr int STEERING_B    = 1;
         constexpr int RESISTANCE_A  = 2;
@@ -33,7 +33,7 @@ namespace Config {
         constexpr unsigned long USER_CLICK_WINDOW_MS = 3000;
         constexpr unsigned long START_LED_BLINK_MS   = 500;
 
-        // Impulso valvola switch (ON/OFF), poi entrambe le bobine OFF
+        // Switch valve pulse (ON/OFF), then both coils OFF
         constexpr unsigned long SWITCH_PULSE_MS   = 500;
     }
 
@@ -41,7 +41,7 @@ namespace Config {
         constexpr unsigned long BAUD = 115200;
     }
 
-    // Click sul pulsante USER entro USER_CLICK_WINDOW_MS
+    // Clicks on the USER button within USER_CLICK_WINDOW_MS
     enum TestCommand {
         CMD_STOP             = 0,
         CMD_STEERING_RIGHT   = 1,
