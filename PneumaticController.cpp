@@ -5,13 +5,34 @@
 PneumaticController::PneumaticController(
     DoubleSolenoid* steering,
     DoubleSolenoid* resistance,
-    DoubleSolenoid* switchValve
+    DoubleSolenoid* switchValve,
+    AmtEncoder* encoder
 ) {
     this->steering = steering;
     this->resistance = resistance;
     this->switchValve = switchValve;
+    this->encoder = encoder;
+
+    runPhase = RUN_RELEASE;
+    runPhaseEntered = false;
+    runSwitchModeLeft = true;
+    runBlockCount = 0;
+    runPhaseStart = 0;
 }
 
+// Call this whenever RUNNING is (re-)entered (right next to
+// encoder1.zero() in SteeringTest.ino), so a leftover phase/timestamp
+// from a previous run can't snap the valves into a new position as
+// soon as the loop resumes.
+void PneumaticController::resetRun() {
+    runPhase = RUN_RELEASE;
+    runPhaseEntered = false;
+    runSwitchModeLeft = true;
+    runBlockCount = 0;
+    runPhaseStart = 0;
+
+    Serial.println("Pneumatic run() reset to RELEASE.");
+}
 
 void PneumaticController::begin() {
 
@@ -19,13 +40,14 @@ void PneumaticController::begin() {
     resistance->begin();
     switchValve->begin();
 
-    Serial.println("PneumaticController initialized :)");
+    Serial.println("Pneumatic valves initialized in OFF state!");
 }
 
-
+////////////////////////////////////////////////////////////
 // Handle the separate pneumatic tests choosen by the user
-// by clicking the user buttont
-void PneumaticController::executeTestCommand(int command) {
+////////////////////////////////////////////////////////////
+// by clicking the user button.
+void PneumaticController::test(int command) {
 
     switch (command) {
 
@@ -59,17 +81,6 @@ void PneumaticController::executeTestCommand(int command) {
     }
 }
 
-void PneumaticController::executeRunningCommand() {
-
-    Serial.println("MACHINE RUNNING..");
-
-    // Here goes the main steering rig program logic :)
-    switchValve->extend();
-    steering->extend();
-    resistance->retract();
-}
-
-
 void PneumaticController::steeringRight() {
 
     resistance->stop();
@@ -78,7 +89,6 @@ void PneumaticController::steeringRight() {
 
     Serial.println("STEERING RIGHT");
 }
-
 
 void PneumaticController::steeringLeft() {
 
@@ -89,7 +99,6 @@ void PneumaticController::steeringLeft() {
     Serial.println("STEERING LEFT");
 }
 
-
 void PneumaticController::resistanceLeft() {
 
     steering->stop();
@@ -99,7 +108,6 @@ void PneumaticController::resistanceLeft() {
     Serial.println("RESISTANCE LEFT");
 }
 
-
 void PneumaticController::resistanceRight() {
 
     steering->stop();
@@ -108,7 +116,6 @@ void PneumaticController::resistanceRight() {
 
     Serial.println("RESISTANCE RIGHT");
 }
-
 
 void PneumaticController::switchOn() {
 
@@ -121,7 +128,6 @@ void PneumaticController::switchOn() {
     Serial.println("SWITCH ON");
 }
 
-
 void PneumaticController::switchOff() {
 
     steering->stop();
@@ -133,7 +139,6 @@ void PneumaticController::switchOff() {
     Serial.println("SWITCH OFF");
 }
 
-
 void PneumaticController::stopAll() {
     steering->stop();
     resistance->stop();
@@ -141,4 +146,3 @@ void PneumaticController::stopAll() {
 
     Serial.println("ALL PNEUMATICS STOPPED");
 }
-

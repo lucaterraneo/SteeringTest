@@ -1,7 +1,7 @@
 #include "DoubleSolenoid.h"
 
 // =====================================================
-// CONSTRUCTOR Call
+// CONSTRUCTOR CALL..
 // =====================================================
 DoubleSolenoid::DoubleSolenoid(
     DigitalStSolidExpansion* exp,

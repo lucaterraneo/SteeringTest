@@ -6,12 +6,10 @@
 ButtonHandler::ButtonHandler(
     int userPin,
     int startPin,
-    DigitalStSolidExpansion* expansion,
-    int calibrationSensorPin
+    DigitalStSolidExpansion* expansion
 ) {
     this->userPin = userPin;
     this->startPin = startPin;
-    this->calibrationSensorPin = calibrationSensorPin;
 
     exp = expansion;
 
@@ -47,9 +45,6 @@ void ButtonHandler::begin() {
 
     // START button receives 24 V when pressed
     pinMode(startPin, INPUT);
-
-    // Calibration sensor
-    pinMode(calibrationSensorPin, INPUT);
 
     // Read initial states
     lastUserState = digitalRead(userPin);
@@ -165,29 +160,14 @@ void ButtonHandler::handleStartButton() {
             // -----------------------------------------
             else if (systemMode == CALIBRATION) {
 
-                // TEMPORARY... Fake the calibration sensor signal.
-                // This simulates A1 becoming HIGH.
-                bool calibrationReached = true;
+                // Calibration always succeeds here; the encoder is
+                // zeroed right after this, at whatever position the
+                // operator has moved it to (see SteeringTest.ino).
+                systemMode = RUNNING;
 
-                /*bool calibrationReached =
-                    digitalRead(calibrationSensorPin) == HIGH;
-                */
+                ledOn();
 
-                if (calibrationReached) {
-
-                    systemMode = RUNNING;
-
-                    ledOn();
-
-                    Serial.println("FAKE A1 SENSOR -> ON");
-                    Serial.println("SYSTEM -> RUNNING");
-                }
-                else {
-
-                    Serial.println(
-                        "START ignored: calibration position not reached"
-                    );
-                }
+                Serial.println("SYSTEM -> RUNNING");
             }
 
             // -----------------------------------------
@@ -283,11 +263,6 @@ bool ButtonHandler::startPressed() {
 // =====================================================
 // SYSTEM STATE
 // =====================================================
-bool ButtonHandler::isCalibrationComplete() {
-
-    return digitalRead(calibrationSensorPin) == HIGH;
-}
-
 bool ButtonHandler::isRunning() {
 
     return systemMode == RUNNING;
@@ -296,4 +271,9 @@ bool ButtonHandler::isRunning() {
 bool ButtonHandler::isIdle() {
 
     return systemMode == IDLE;
+}
+
+bool ButtonHandler::isCalibrating() {
+
+    return systemMode == CALIBRATION;
 }

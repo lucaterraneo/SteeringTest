@@ -23,8 +23,35 @@ namespace Config {
         constexpr int START_LED     = 6;   // SSR 7
 
         constexpr int USER_BUTTON   = BTN_USER;
-        constexpr int START_BUTTON  = A0;  // L1 Opta
-        constexpr int CALIBRATION   = A1;
+        constexpr int START_BUTTON  = A0;  // I1, L1 Opta
+
+        // AMT103, read as 0-10 V analog. X = index, once per turn.
+        constexpr int ENC1_X        = A1;  // I2
+        constexpr int ENC1_A        = A2;  // I3
+        constexpr int ENC1_B        = A3;  // I4
+        constexpr int ENC2_X        = A4;  // I5
+        constexpr int ENC2_A        = A5;  // I6
+        constexpr int ENC2_B        = A6;  // I7
+    }
+
+    namespace Encoder {
+
+        // Must match the DIP switch on the AMT103.
+        constexpr int PPR = 2048;
+
+        // Encoder 2 is not wired yet.
+        constexpr bool USE_ENCODER2 = false;
+
+        // 12-bit reading: low is about 0, high is about 1400.
+        // Hysteresis band so noise/vibration near the switching point
+        // (e.g. cylinder hitting its end-stop) can't flip the decoded
+        // state back and forth and create phantom counts.
+        constexpr int ADC_BITS = 12;
+        constexpr int HIGH_THRESHOLD = 700;  // go HIGH above this
+        constexpr int LOW_THRESHOLD  = 200;  // go LOW below this
+
+        // Live angle print period.
+        constexpr unsigned long PRINT_MS = 50;
     }
 
     namespace Timing {
@@ -33,8 +60,24 @@ namespace Config {
         constexpr unsigned long USER_CLICK_WINDOW_MS = 3000;
         constexpr unsigned long START_LED_BLINK_MS   = 500;
 
-        // Switch valve pulse (ON/OFF), then both coils OFF
+        // Rocker Switch valve pulse (ON/OFF), then both coils OFF
         constexpr unsigned long SWITCH_PULSE_MS   = 500;
+
+        // Automatic run(): how many steering blocks per switch mode
+        // (left/right).
+        constexpr int STEER_BLOCK_REPEATS         = 3;
+
+        // Pause with steering + resistance released (stopped) before
+        // every switch pulse (left or right).
+        constexpr unsigned long RELEASE_HOLD_MS   = 1000;
+    }
+
+    namespace Run {
+        // Target wheel angle magnitude (deg) for each steer stroke
+        // endpoint in automatic run(). Closed-loop on the real encoder
+        // angle, not a fixed time, so strokes always end at the same
+        // physical angle and nothing drifts cycle over cycle.
+        constexpr float STEER_TARGET_DEG = 30.0f;
     }
 
     namespace SerialPort {

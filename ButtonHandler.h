@@ -23,9 +23,6 @@ private:
     bool lastStartState;
     unsigned long startDebounceTime;
 
-    // CALIBRATION SENSOR
-    int calibrationSensorPin;
-
     // START LED
     DigitalStSolidExpansion* exp;
 
@@ -57,8 +54,7 @@ public:
     ButtonHandler(
         int userPin,
         int startPin,
-        DigitalStSolidExpansion* expansion,
-        int calibrationSensorPin
+        DigitalStSolidExpansion* expansion
     );
 
     void begin();
@@ -67,9 +63,9 @@ public:
     int getUserCommand();
     bool startPressed();
 
-    bool isCalibrationComplete();
     bool isRunning();
     bool isIdle();
+    bool isCalibrating();
 };
 
 #endif
