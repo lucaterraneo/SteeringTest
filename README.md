@@ -1,21 +1,17 @@
 # Steering Test
 
-**Preliminary** firmware for the Versive steering test stand.
+Firmware for the Versive wheelchair front-wheel steering fatigue test stand.
 
-Three pneumatic valves (steering, resistance, switch) on an Arduino **Opta** + **Digital Solid State (SSR)** expansion.
+Three pneumatic valves (steering, resistance, switch) on an Arduino **Opta** +
+**Digital Solid State (SSR)** expansion, plus an **AMT103** quadrature encoder
+reading the real front-wheel rotation angle.
 
 [![Arduino Opta](https://img.shields.io/badge/Arduino-Opta-00979D?logo=arduino&logoColor=white)](https://docs.arduino.cc/hardware/opta/)
 [![C++](https://img.shields.io/badge/C%2B%2B-firmware-00599C?logo=cplusplus&logoColor=white)](#)
-[![Status](https://img.shields.io/badge/status-preliminary%20test-yellow)](#current-limits)
-
-Two ways to use it:
-
-1. **Valve test** — click the USER button (IDLE state)
-2. **Machine cycle** — program in `executeRunningCommand()` (RUNNING state)
 
 > [!IMPORTANT]
-> After every change: **Verify → Upload** to the Opta.  
-> `Config.h` is compiled into the firmware: resetting the board does **not** apply the new values.
+> After every change: **Verify → Upload** to the Opta.
+> `Config.h` is compiled into the firmware: resetting the board does **not** apply new values.
 
 ---
 
@@ -26,7 +22,7 @@ Two ways to use it:
 - [Machine states](#machine-states)
 - [Config.h](#configh)
 - [Test with the USER button](#test-with-the-user-button)
-- [RUNNING program](#running-program)
+- [Automatic RUNNING sequence](#automatic-running-sequence)
 - [Build and upload](#build-and-upload)
 - [Current limits](#current-limits)
 
@@ -34,15 +30,15 @@ Two ways to use it:
 
 ## Architecture
 
-You almost only change **two files**: `Config.h` (pins and timings) and `PneumaticController.cpp` (RUNNING cycle).
-
 ```text
 SteeringTest/
 ├── SteeringTest.ino          # setup / loop, object wiring
-├── Config.h                  # pins, timings, USER click map
-├── DoubleSolenoid.h/.cpp     # one valve = two SSRs
-├── ButtonHandler.h/.cpp      # buttons, LED, FSM
+├── Config.h                  # pins, timings, encoder settings, USER click map
+├── DoubleSolenoid.h/.cpp     # one valve = two SSRs (extend/retract/stop)
+├── ButtonHandler.h/.cpp      # USER/START buttons, LED, IDLE/CALIBRATION/RUNNING FSM
+├── AmtEncoder.h/.cpp         # AMT103 quadrature decode (hysteresis), angleDeg()
 ├── PneumaticController.h/.cpp
+├── run.cpp                   # automatic RUNNING cycle (PneumaticController::run())
 └── README.md
 ```
 
@@ -56,6 +52,7 @@ flowchart LR
   subgraph FW["Firmware"]
     BH[ButtonHandler]
     PC[PneumaticController]
+    ENC[AmtEncoder]
     CFG[Config.h]
   end
 
@@ -67,10 +64,12 @@ flowchart LR
 
   USER --> BH
   START --> BH
-  BH -->|"clicks 1–6"| PC
+  BH -->|"clicks 1-6"| PC
   BH -->|"RUNNING"| PC
+  ENC -->|"angleDeg()"| PC
   CFG -.-> BH
   CFG -.-> PC
+  CFG -.-> ENC
   PC --> ST
   PC --> RE
   PC --> SW
@@ -82,14 +81,15 @@ flowchart LR
 | `Config.h` | Constants (it is not a class) |
 | `DoubleSolenoid` | `extend()` / `retract()` / `stop()` |
 | `ButtonHandler` | Inputs + LED + IDLE / CALIBRATION / RUNNING states |
-| `PneumaticController` | USER test + **stand program** |
+| `AmtEncoder` | Quadrature decode with hysteresis, cumulative `angleDeg()` |
+| `PneumaticController` | USER test (`test()`) + automatic cycle (`run()`) |
 
 ---
 
 ## Hardware
 
-Board: **Arduino Opta** (`arduino:mbed_opta:opta`)  
-Library: [Arduino_Opta_Blueprint](https://github.com/arduino-libraries/Arduino_Opta_Blueprint) (`OptaBlue.h`)  
+Board: **Arduino Opta** (`arduino:mbed_opta:opta`)
+Library: [Arduino_Opta_Blueprint](https://github.com/arduino-libraries/Arduino_Opta_Blueprint) (`OptaBlue.h`)
 Expansion: first Digital Solid State → `OptaController.getExpansion(0)`
 
 Software indices: **0 = first SSR**. The START LED is physical SSR **7** = index **6**.
@@ -101,8 +101,9 @@ Software indices: **0 = first SSR**. The START LED is physical SSR **7** = index
 | Switch A / B | 4, 5 | `extend` / `retract` |
 | START LED | 6 | physical SSR 7 |
 | USER button | `BTN_USER` | pull-up, active low |
-| START IDEC | `A0` (L1) | 24 V when pressed |
-| Calibration sensor | `A1` | wired, **still simulated in code** |
+| START button | `A0` (I1, L1) | 24 V when pressed |
+| Encoder 1 X / A / B | `A1` / `A2` / `A3` | AMT103 on the front wheel shaft (in use) |
+| Encoder 2 X / A / B | `A4` / `A5` / `A6` | wired, unused (`USE_ENCODER2 = false`) |
 
 On each valve:
 
@@ -114,6 +115,16 @@ On each valve:
 
 If a valve moves the wrong way, in `Config.h` **swap A and B** of that pair.
 
+### AMT103 encoder
+
+`encoder1` is mounted on the shaft of the front wheel/caster assembly, so
+`angleDeg()` reads the real wheel rotation angle directly — not an abstract
+actuator position. Analog channels A/B are decoded with hysteresis
+(`HIGH_THRESHOLD` / `LOW_THRESHOLD` in `Config.h`) to avoid phantom counts
+from noise near the switching point. `PPR` (2048) must match the AMT103's
+DIP switch setting. The X index channel is read only as a raw live value
+during CALIBRATION (see below) — it is **not** used to auto-zero the encoder.
+
 ---
 
 ## Machine states
@@ -124,29 +135,29 @@ The **START** button advances one state on each press:
 stateDiagram-v2
   [*] --> IDLE
   IDLE --> CALIBRATION: START
-  CALIBRATION --> RUNNING: START + A1 ok
+  CALIBRATION --> RUNNING: START
   RUNNING --> IDLE: START
 ```
 
 | State | START LED | Behavior |
 |---|---|---|
-| **IDLE** | off | USER test. No machine cycle |
-| **CALIBRATION** | blinking | Waits for the second START |
-| **RUNNING** | steady on | `loop()` calls `executeRunningCommand()` |
+| **IDLE** | off | USER test only. No automatic cycle. On entry, all valves are stopped. |
+| **CALIBRATION** | blinking | Operator rotates the wheel by hand to the desired zero position. Live raw `analogRead` of the X channel is printed so it can be found by eye. No valve is driven. |
+| **RUNNING** | steady on | `encoder1.zero()` is called on entry (whatever position the wheel is in at that instant becomes 0°), `pneumatic.run()` cycles the valves on every `loop()` |
 
-Serial Monitor at **115200** baud: messages such as `SYSTEM -> RUNNING`.
+Serial Monitor at **115200** baud shows state transitions (`SYSTEM -> RUNNING`, etc.)
+and the live signed wheel angle while RUNNING.
 
-> [!WARNING]
-> During calibration the A1 sensor is **faked** (`calibrationReached = true` in `ButtonHandler.cpp`).  
-> The real read is commented out. When the limit switch is wired, remove the fake.
+> [!NOTE]
+> There is no hardware calibration sensor / limit switch. CALIBRATION is purely
+> a manual positioning step; the second START press always succeeds and zeros
+> the encoder wherever the wheel physically is.
 
 ---
 
 ## Config.h
 
-`Config` is a **namespace** of constants, not an object. Use it like this: `Config::Pins::STEERING_A`.
-
-Open this file for wiring and timings. The RUNNING pneumatic cycle does **not** go here.
+`Config` is a **namespace** of constants, not an object: `Config::Pins::STEERING_A`.
 
 ### Pins
 
@@ -161,36 +172,61 @@ namespace Pins {
     constexpr int START_LED     = 6;   // physical SSR 7
     constexpr int USER_BUTTON   = BTN_USER;
     constexpr int START_BUTTON  = A0;
-    constexpr int CALIBRATION   = A1;
+    constexpr int ENC1_X        = A1;
+    constexpr int ENC1_A        = A2;
+    constexpr int ENC1_B        = A3;
+    constexpr int ENC2_X        = A4;
+    constexpr int ENC2_A        = A5;
+    constexpr int ENC2_B        = A6;
 }
 ```
+
+### Encoder
+
+| Constant | Default | Use |
+|---|---|---|
+| `PPR` | 2048 | must match the AMT103 DIP switch |
+| `USE_ENCODER2` | false | second encoder wired but unused |
+| `HIGH_THRESHOLD` / `LOW_THRESHOLD` | 700 / 200 | hysteresis band (12-bit ADC) |
+| `PRINT_MS` | 50 | live Serial print period (does **not** throttle sampling — `encoder.update()` runs every `loop()` iteration) |
 
 ### Timings
 
 | Constant | Default | Use |
 |---|---|---|
-| `DEBOUNCE_MS` | 30 | debounce |
-| `USER_CLICK_WINDOW_MS` | 3000 | wait after the last USER click |
-| `START_LED_BLINK_MS` | 500 | blink in CALIBRATION |
-| `SWITCH_PULSE_MS` | 500 | switch pulse in **tests** clicks 5 and 6 |
+| `DEBOUNCE_MS` | 30 | button debounce |
+| `USER_CLICK_WINDOW_MS` | 3000 | wait after the last USER click before executing the command |
+| `START_LED_BLINK_MS` | 500 | LED blink in CALIBRATION |
+| `SWITCH_PULSE_MS` | 500 | switch pulse duration (USER test clicks 5/6, and each automatic switch pulse) |
+| `RELEASE_HOLD_MS` | 1000 | all valves stopped, held before every switch pulse |
+| `STEER_BLOCK_REPEATS` | 3 | number of steering blocks per switch mode |
+| `Run::STEER_TARGET_DEG` | 30.0 | wheel angle magnitude (deg) each steering stroke must reach |
 | `SerialPort::BAUD` | 115200 | Serial Monitor |
-
-Pauses in the **RUNNING cycle** are written in the method, not here (unless you reuse `SWITCH_PULSE_MS`).
 
 ### USER click map
 
-`CMD_STEERING_RIGHT = 1`, … `CMD_SWITCH_OFF = 6`.  
-Change the numbers only if you want a different count. The logic stays in `executeTestCommand()`.
+```cpp
+enum TestCommand {
+    CMD_STOP             = 0,
+    CMD_STEERING_RIGHT   = 1,
+    CMD_STEERING_LEFT    = 2,
+    CMD_RESISTANCE_LEFT  = 3,
+    CMD_RESISTANCE_RIGHT = 4,
+    CMD_SWITCH_ON        = 5,
+    CMD_SWITCH_OFF       = 6
+};
+```
 
 ---
 
 ## Test with the USER button
 
-Useful in **IDLE**. In RUNNING the cycle keeps commanding the valves and overwrites the test.
+Useful in **IDLE**. In RUNNING the automatic cycle keeps commanding the valves
+and overwrites any test command.
 
-1. Press USER **N** times  
-2. Do not press for **3 s** (`USER_CLICK_WINDOW_MS`)  
-3. Command N starts  
+1. Press USER **N** times
+2. Do not press for **3 s** (`USER_CLICK_WINDOW_MS`)
+3. Command N executes
 
 | Clicks | Action | Code |
 |---|---|---|
@@ -200,77 +236,60 @@ Useful in **IDLE**. In RUNNING the cycle keeps commanding the valves and overwri
 | 4 | resistance right | `resistance->retract()` |
 | 5 | switch ON | `extend` pulse → `stop` |
 | 6 | switch OFF | `retract` pulse → `stop` |
-| other | software emergency | `stopAll()` |
+| other | software emergency stop | `stopAll()` |
 
-Clicks 5 and 6 use `delay(Config::Timing::SWITCH_PULSE_MS)`.
+Clicks 5 and 6 use a blocking `delay(Config::Timing::SWITCH_PULSE_MS)` — this
+is the only place `delay()` is still used in the firmware, and it is never
+reachable from the automatic RUNNING cycle.
 
 ---
 
-## RUNNING program
+## Automatic RUNNING sequence
 
-**File:** `PneumaticController.cpp`  
-**Function:** `executeRunningCommand()`
+**File:** `run.cpp` (method `PneumaticController::run()`, declared in
+`PneumaticController.h`). Called from `loop()` on every iteration while
+RUNNING. Entirely non-blocking (`millis()`-based state machine, no `delay()`),
+so encoder sampling in `loop()` is never interrupted.
 
-This is the only function to edit for the stand cycle.
+It loops forever between two modes, flipping mode every 3 steering blocks:
 
-```cpp
-void PneumaticController::executeRunningCommand() {
-    Serial.println("MACHINE RUNNING..");
+- **Switch LEFT** ("Lenkmodus")
+- **Switch RIGHT** ("normal modus")
 
-    switchValve->extend();
-    steering->extend();
-    resistance->retract();
-}
+```mermaid
+stateDiagram-v2
+  [*] --> RELEASE
+  RELEASE --> SWITCH_PULSE: RELEASE_HOLD_MS elapsed
+  SWITCH_PULSE --> STEER_LEFT: SWITCH_PULSE_MS elapsed
+  STEER_LEFT --> STEER_RIGHT: angle <= -STEER_TARGET_DEG
+  STEER_RIGHT --> STEER_LEFT: angle >= STEER_TARGET_DEG (block < 3)
+  STEER_RIGHT --> RELEASE: angle >= STEER_TARGET_DEG (block == 3, flip switch mode)
 ```
 
-> [!NOTE]
-> In RUNNING this function is called **on every `loop()` turn**.  
-> It is not “run once”: it holds the positions (or repeats the sequence) for as long as you stay in RUNNING.
+| Phase | Behavior |
+|---|---|
+| `RELEASE` | Steering, resistance, and switch valves all `stop()`. Held for `RELEASE_HOLD_MS`. |
+| `SWITCH_PULSE` | Switch valve pulses LEFT or RIGHT for `SWITCH_PULSE_MS`, then `stop()`. |
+| `STEER_LEFT` | Steer LEFT + resistance RIGHT, until `encoder1.angleDeg() <= -STEER_TARGET_DEG`. |
+| `STEER_RIGHT` | Steer RIGHT + resistance LEFT, until `encoder1.angleDeg() >= STEER_TARGET_DEG`. |
 
-### Available valves
+Steering strokes are **closed-loop on the real wheel angle**, not a fixed
+time: `steering` and `resistance` push in opposite directions with different
+load/friction, so a fixed actuation time would make left/right travel
+slightly asymmetric and drift cycle over cycle. Ending every stroke at the
+same measured angle keeps the cycle stable indefinitely.
 
-- `steering`
-- `resistance`
-- `switchValve`
+`STEER_LEFT`/`STEER_RIGHT` repeat `STEER_BLOCK_REPEATS` (3) times per switch
+mode, then the switch mode flips and the sequence returns to `RELEASE`.
 
-### Example — fixed pose
+On the **2nd START press** (CALIBRATION → RUNNING), `SteeringTest.ino` calls
+`encoder1.zero()` and `pneumatic.resetRun()` together, so the automatic cycle
+always restarts cleanly from `RELEASE` with a fresh zero reference — a stale
+leftover phase/timestamp from a previous run can never snap the valves into
+motion before the encoder is zeroed.
 
-```cpp
-void PneumaticController::executeRunningCommand() {
-    steering->retract();
-    resistance->stop();
-    switchValve->extend();
-}
-```
-
-### Example — sequence with pauses
-
-```cpp
-void PneumaticController::executeRunningCommand() {
-    switchValve->extend();
-    delay(Config::Timing::SWITCH_PULSE_MS);
-    switchValve->stop();
-
-    steering->extend();
-    resistance->retract();
-    delay(2000);
-
-    steering->retract();
-    delay(2000);
-
-    steering->stop();
-    resistance->stop();
-    delay(500);
-}
-```
-
-When the sequence ends, it **starts over** for as long as you are in RUNNING. START again → IDLE.
-
-> [!CAUTION]
-> `delay()` blocks buttons and the LED for the whole pause. Fine for a preliminary test.  
-> In IDLE the valves do **not** go to `stop()` on their own: they stay on the last command.
-
-`Serial.println("MACHINE RUNNING..")` on every loop floods the Monitor: comment it out if you use a fixed pose without `delay`.
+On the **3rd START press** (RUNNING → IDLE), `pneumatic.test(Config::CMD_STOP)`
+releases all valves so nothing stays energized between runs.
 
 ---
 
@@ -296,11 +315,7 @@ On macOS the port is often `/dev/cu.usbmodem*`.
 
 ## Current limits
 
-It works as a **preliminary test**. Not yet present:
-
-- [ ] Real A1 calibration limit switch
-- [ ] Automatic `stopAll()` when returning to IDLE
-- [ ] RUNNING sequence as a table in Config (kept in the method on purpose, more direct)
-- [ ] Non-blocking waits (`millis`) in the machine cycle
-
-`update()` and `handleSwitchPulse()` are still declared in `PneumaticController.h` and not implemented: they are not called, and they do not block compilation.
+- No hardware calibration sensor / limit switch — CALIBRATION is manual positioning only.
+- No CSV logging or stroke/fatigue cycle counting (removed by design, kept minimal).
+- `update()` and `handleSwitchPulse()` are declared in `PneumaticController.h` but not implemented: they are not called, and they do not block compilation.
+- `visualizations/plot_steering_angle.py` is an offline plotting script and is currently stale relative to the simplified no-CSV firmware (matches an older logging format).
