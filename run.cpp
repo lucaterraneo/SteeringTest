@@ -1,104 +1,78 @@
 #include "PneumaticController.h"
 #include "Config.h"
 
-// ============================================================
-// Automatic run test:
-//   RELEASE (all valves stopped)
-//   SWITCH LEFT/RIGHT -> 3x steering block
-//   flip switch mode -> back to RELEASE ... repeats forever while RUNNING
+// mode 1 (TRADITIONAL): switch LEFT, steer left/right 3 times, then mode 2.
+// mode 2 (STEERBYLEAN): switch RIGHT, steer left/right 3 times, then mode 1.
 //
-// Each steering block: steer LEFT + resistance RIGHT until the encoder
-// angle reaches -STEER_TARGET_DEG, then steer RIGHT + resistance LEFT
-// until it reaches +STEER_TARGET_DEG. Closed-loop on the real encoder
-// angle, not a fixed time, so strokes always end at the same physical
-// angle and nothing drifts cycle over cycle.
-//
-// Non-blocking (millis()-based): no delay() is used, so encoder
-// sampling in loop() is never interrupted.
-// ============================================================
-
+// Uses waitKeepingEncoder() instead of delay(): same blocking wait, but it
+// keeps sampling encoder->update() the whole time, so a fast stroke can't
+// lose quadrature counts just because run() is busy-waiting.
 void PneumaticController::run() {
 
-    const unsigned long RELEASE_HOLD_MS = Config::Timing::RELEASE_HOLD_MS;
-    const unsigned long SWITCH_HOLD_MS  = Config::Timing::SWITCH_PULSE_MS;
-    const float TARGET_DEG              = Config::Run::STEER_TARGET_DEG;
-    const int BLOCK_REPEATS             = Config::Timing::STEER_BLOCK_REPEATS;
+    int count = 3;
+    int steercount;
 
-    unsigned long now = millis();
+    switch(mode) {
 
-    switch (runPhase) {
+        // mode = 1 --> TRADITIONAL (default in constructor of the pneumatic object, check PneumaticController.cpp)
+        case 1:
 
-        case RUN_RELEASE:
-            if (!runPhaseEntered) {
-                steering->stop();
-                resistance->stop();
-                switchValve->stop();
-                Serial.println("RELEASE (valves stopped)");
-                runPhaseStart = now;
-                runPhaseEntered = true;
+            steercount = count;
+            switchValve -> extend();
+            waitKeepingEncoder(Config::Timing::SWITCH_PULSE_MS);
+            switchValve -> stop();
+
+            while(steercount != 0) {
+                // steering left
+                steering -> retract();
+                // resistance right
+                resistance -> extend();
+                waitKeepingEncoder(Config::Timing::STEER_STROKE_MS);
+                steering -> extend();
+                resistance -> retract();
+                waitKeepingEncoder(Config::Timing::STEER_STROKE_MS);
+
+                steercount --;
             }
+            steercount = count;
+            mode = 2;
 
-            if (now - runPhaseStart >= RELEASE_HOLD_MS) {
-                runPhase = RUN_SWITCH_PULSE;
-                runPhaseEntered = false;
-            }
             break;
 
-        case RUN_SWITCH_PULSE:
-            if (!runPhaseEntered) {
-                if (runSwitchModeLeft) {
-                    switchValve->extend();
-                    Serial.println("SWITCH LEFT");
-                } else {
-                    switchValve->retract();
-                    Serial.println("SWITCH RIGHT");
-                }
-                runPhaseStart = now;
-                runPhaseEntered = true;
+
+        // mode = 2 --> STEERBYLEAN :)
+        case 2:
+
+            steercount = count;
+            switchValve -> retract();
+            waitKeepingEncoder(Config::Timing::SWITCH_PULSE_MS);
+            switchValve -> stop();
+
+            while(steercount != 0){
+                // steering right
+                steering -> extend();
+                //resistance left
+                resistance -> retract();
+                waitKeepingEncoder(Config::Timing::STEER_STROKE_MS);
+                steering -> retract();
+                resistance -> extend();
+                waitKeepingEncoder(Config::Timing::STEER_STROKE_MS);
+
+                steercount --;
             }
 
-            if (now - runPhaseStart >= SWITCH_HOLD_MS) {
-                switchValve->stop();
-                runBlockCount = 0;
-                runPhase = RUN_STEER_LEFT;
-                runPhaseEntered = false;
-            }
+            steercount = count;
+            mode = 1;
+
             break;
 
-        case RUN_STEER_LEFT:
-            if (!runPhaseEntered) {
-                steering->retract();   // Steer LEFT
-                resistance->extend();  // Resistance RIGHT
-                Serial.println("Steer LEFT / Resistance RIGHT");
-                runPhaseEntered = true;
-            }
+    }
+}
 
-            if (encoder->angleDeg() <= -TARGET_DEG) {
-                runPhase = RUN_STEER_RIGHT;
-                runPhaseEntered = false;
-            }
-            break;
+void PneumaticController::waitKeepingEncoder(unsigned long ms) {
+    unsigned long start = millis();
 
-        case RUN_STEER_RIGHT:
-            if (!runPhaseEntered) {
-                steering->extend();     // Steer RIGHT
-                resistance->retract();  // Resistance LEFT
-                Serial.println("Steer RIGHT / Resistance LEFT");
-                runPhaseEntered = true;
-            }
-
-            if (encoder->angleDeg() >= TARGET_DEG) {
-                runBlockCount++;
-
-                if (runBlockCount >= BLOCK_REPEATS) {
-                    runSwitchModeLeft = !runSwitchModeLeft;  // flip switch mode
-                    runPhase = RUN_RELEASE;
-                } else {
-                    runPhase = RUN_STEER_LEFT;
-                }
-
-                runPhaseEntered = false;
-            }
-            break;
+    while (millis() - start < ms) {
+        encoder->update();
     }
 }

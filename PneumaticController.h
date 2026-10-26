@@ -14,29 +14,10 @@ private:
     DoubleSolenoid* switchValve;
     AmtEncoder* encoder;
 
-    bool switchPulseActive;
-    unsigned long switchPulseStartTime;
-
-    // Automatic run() state (persists across calls; must be explicitly
-    // reset via resetRun() whenever RUNNING is (re-)entered, otherwise
-    // a stale phaseStart from a previous run would look "timed out"
-    // and snap the valves into a new position immediately).
-    enum RunPhase {
-        RUN_RELEASE,
-        RUN_SWITCH_PULSE,
-        RUN_STEER_LEFT,
-        RUN_STEER_RIGHT
-    };
-
-    RunPhase runPhase;
-    bool runPhaseEntered;
-
-    // true = switch LEFT, false = switch RIGHT. Flipped every time a
-    // full 3x steering block finishes.
-    bool runSwitchModeLeft;
-
-    int runBlockCount;
-    unsigned long runPhaseStart;
+    // Automatic run() state (persists across calls; reset via
+    // resetRun() whenever RUNNING is (re-)entered).
+    // mode = 1 -> TRADITIONAL, mode = 2 -> STEERBYLEAN
+    int mode;
 
     void steeringRight();
     void steeringLeft();
@@ -48,7 +29,11 @@ private:
     void switchOff();
 
     void stopAll();
-    void handleSwitchPulse();
+
+    // Like delay(ms), but keeps calling encoder->update() the whole
+    // time so a steering stroke done with a blocking wait doesn't
+    // lose quadrature counts while it's actuating.
+    void waitKeepingEncoder(unsigned long ms);
 
 public:
 

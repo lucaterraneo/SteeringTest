@@ -80,6 +80,7 @@ void setup() {
     OptaController.begin();
     stsolidExp = OptaController.getExpansion(0);
 
+    // begin with all the pneumatic valves off..
     pneumatic.begin();
     buttons.begin();
 

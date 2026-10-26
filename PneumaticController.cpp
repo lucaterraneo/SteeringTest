@@ -13,11 +13,7 @@ PneumaticController::PneumaticController(
     this->switchValve = switchValve;
     this->encoder = encoder;
 
-    runPhase = RUN_RELEASE;
-    runPhaseEntered = false;
-    runSwitchModeLeft = true;
-    runBlockCount = 0;
-    runPhaseStart = 0;
+    mode = 1;
 }
 
 // Call this whenever RUNNING is (re-)entered (right next to
@@ -25,13 +21,7 @@ PneumaticController::PneumaticController(
 // from a previous run can't snap the valves into a new position as
 // soon as the loop resumes.
 void PneumaticController::resetRun() {
-    runPhase = RUN_RELEASE;
-    runPhaseEntered = false;
-    runSwitchModeLeft = true;
-    runBlockCount = 0;
-    runPhaseStart = 0;
-
-    Serial.println("Pneumatic run() reset to RELEASE.");
+    mode = 1;
 }
 
 void PneumaticController::begin() {

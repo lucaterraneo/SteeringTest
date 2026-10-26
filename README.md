@@ -199,7 +199,6 @@ namespace Pins {
 | `START_LED_BLINK_MS` | 500 | LED blink in CALIBRATION |
 | `SWITCH_PULSE_MS` | 500 | switch pulse duration (USER test clicks 5/6, and each automatic switch pulse) |
 | `RELEASE_HOLD_MS` | 1000 | all valves stopped, held before every switch pulse |
-| `STEER_BLOCK_REPEATS` | 3 | number of steering blocks per switch mode |
 | `Run::STEER_TARGET_DEG` | 30.0 | wheel angle magnitude (deg) each steering stroke must reach |
 | `SerialPort::BAUD` | 115200 | Serial Monitor |
 
@@ -259,8 +258,8 @@ It loops forever between two modes, flipping mode every 3 steering blocks:
 ```mermaid
 stateDiagram-v2
   [*] --> RELEASE
-  RELEASE --> SWITCH_PULSE: RELEASE_HOLD_MS elapsed
-  SWITCH_PULSE --> STEER_LEFT: SWITCH_PULSE_MS elapsed
+  RELEASE --> SWITCH: RELEASE_HOLD_MS elapsed
+  SWITCH --> STEER_LEFT: SWITCH_PULSE_MS elapsed
   STEER_LEFT --> STEER_RIGHT: angle <= -STEER_TARGET_DEG
   STEER_RIGHT --> STEER_LEFT: angle >= STEER_TARGET_DEG (block < 3)
   STEER_RIGHT --> RELEASE: angle >= STEER_TARGET_DEG (block == 3, flip switch mode)
@@ -269,7 +268,7 @@ stateDiagram-v2
 | Phase | Behavior |
 |---|---|
 | `RELEASE` | Steering, resistance, and switch valves all `stop()`. Held for `RELEASE_HOLD_MS`. |
-| `SWITCH_PULSE` | Switch valve pulses LEFT or RIGHT for `SWITCH_PULSE_MS`, then `stop()`. |
+| `SWITCH` | Switch valve pulses LEFT or RIGHT for `SWITCH_PULSE_MS`, then `stop()`. |
 | `STEER_LEFT` | Steer LEFT + resistance RIGHT, until `encoder1.angleDeg() <= -STEER_TARGET_DEG`. |
 | `STEER_RIGHT` | Steer RIGHT + resistance LEFT, until `encoder1.angleDeg() >= STEER_TARGET_DEG`. |
 
@@ -279,8 +278,10 @@ load/friction, so a fixed actuation time would make left/right travel
 slightly asymmetric and drift cycle over cycle. Ending every stroke at the
 same measured angle keeps the cycle stable indefinitely.
 
-`STEER_LEFT`/`STEER_RIGHT` repeat `STEER_BLOCK_REPEATS` (3) times per switch
-mode, then the switch mode flips and the sequence returns to `RELEASE`.
+`STEER_LEFT`/`STEER_RIGHT` alternate 3 times (`runBlockCount`), identically
+regardless of switch mode — only the `SWITCH` phase's pulse direction
+depends on it. After the 3rd block the switch mode flips and the sequence
+returns to `RELEASE`.
 
 On the **2nd START press** (CALIBRATION → RUNNING), `SteeringTest.ino` calls
 `encoder1.zero()` and `pneumatic.resetRun()` together, so the automatic cycle

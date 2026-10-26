@@ -63,13 +63,14 @@ namespace Config {
         // Rocker Switch valve pulse (ON/OFF), then both coils OFF
         constexpr unsigned long SWITCH_PULSE_MS   = 500;
 
-        // Automatic run(): how many steering blocks per switch mode
-        // (left/right).
-        constexpr int STEER_BLOCK_REPEATS         = 3;
-
         // Pause with steering + resistance released (stopped) before
         // every switch pulse (left or right).
         constexpr unsigned long RELEASE_HOLD_MS   = 1000;
+
+        // How long one steering stroke needs to physically finish
+        // before the next valve command is issued. Tune this to match
+        // the real cylinder travel time on the rig.
+        constexpr unsigned long STEER_STROKE_MS   = 2000;
     }
 
     namespace Run {
