@@ -32,14 +32,24 @@ DoubleSolenoid switchValve(
     Config::Pins::SWITCH_B
 );
 
-// ============================================================
-// CONTROLLERS
-// ============================================================
+
+ButtonHandler buttons(
+    Config::Pins::USER_BUTTON,
+    Config::Pins::START_BUTTON,
+    &stsolidExp
+);
 
 AmtEncoder encoder1(
     "E1",
     Config::Pins::ENC1_A,
     Config::Pins::ENC1_B,
+    Config::Encoder::PPR
+);
+
+AmtEncoder encoder2(
+    "E2",
+    Config::Pins::ENC2_A,
+    Config::Pins::ENC2_B,
     Config::Encoder::PPR
 );
 
@@ -50,33 +60,14 @@ PneumaticController pneumatic(
     &encoder1
 );
 
-ButtonHandler buttons(
-    Config::Pins::USER_BUTTON,
-    Config::Pins::START_BUTTON,
-    &stsolidExp
-);
 
-AmtEncoder encoder2(
-    "E2",
-    Config::Pins::ENC2_A,
-    Config::Pins::ENC2_B,
-    Config::Encoder::PPR
-);
-
-// ============================================================
-// GENERAL TIMING
-// ============================================================
-
-unsigned long lastAnglePrint = 0;
 unsigned long lastService = 0;
+unsigned long lastAnglePrint = 0;
 
-// ============================================================
-// SETUP
-// ============================================================
 
 void setup() {
-    Serial.begin(Config::SerialPort::BAUD);
 
+    Serial.begin(Config::SerialPort::BAUD);
     OptaController.begin();
     stsolidExp = OptaController.getExpansion(0);
 
@@ -84,19 +75,17 @@ void setup() {
     pneumatic.begin();
     buttons.begin();
 
+    // So run()'s blocking waits can still see the START button.
+    pneumatic.attachButtons(&buttons);
+
     encoder1.begin();
 
     if (Config::Encoder::USE_ENCODER2) {
         encoder2.begin();
     }
-
-    Serial.println("System ready.");
-    Serial.println("Waiting for START/calibration sequence.");
+    Serial.println("put the backrest in the middle position and press start button again :)");
 }
 
-// ============================================================
-// LOOP
-// ============================================================
 
 void loop() {
     // Keep sampling encoders continuously.
@@ -131,12 +120,9 @@ void loop() {
         }
 
         pneumatic.resetRun();
-
-        Serial.println("E1 ANGLE = 0 DEG");
     }
 
-    // Third START (back to IDLE): release all valves so nothing stays
-    // energized/holding pressure between runs.
+    // stop steering test on the third button push
     else if (startEvent && buttons.isIdle()) {
         pneumatic.test(Config::CMD_STOP);
     }
@@ -148,30 +134,21 @@ void loop() {
         pneumatic.test(command);
     }
 
-    // Automatic pneumatic operation while running (currently empty:
-    // rotation is done by hand for this test).
+    // Automatic pneumatic operation while running
     if (buttons.isRunning()) {
         pneumatic.run();
     }
 
-    // Live output.
+
+
+    // Live output of the angle read, even before start of pneumatic steering test!
     now = millis();
 
     if (now - lastAnglePrint >= Config::Encoder::PRINT_MS) {
         lastAnglePrint = now;
 
-        if (buttons.isCalibrating()) {
-            // Show the raw X index reading while searching for it by hand.
-            Serial.print("Calibration X raw: ");
-            Serial.println(analogRead(Config::Pins::ENC1_X));
-        } else {
-            Serial.print("E1 | Angle: ");
-            Serial.println(encoder1.angleDeg(), 2);
-
-            if (Config::Encoder::USE_ENCODER2) {
-                Serial.print("E2 | Angle: ");
-                Serial.println(encoder2.angleDeg(), 2);
-            }
-        }
+        Serial.print("Angle: ");
+        Serial.print(encoder1.angleDeg(), 2);
+        Serial.println(" °");
     }
 }

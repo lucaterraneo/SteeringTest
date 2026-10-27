@@ -61,7 +61,6 @@ void ButtonHandler::begin() {
     // START LED OFF
     ledOff();
 
-    Serial.println("ButtonHandler initialized");
     Serial.println("SYSTEM -> IDLE");
 }
 
@@ -93,7 +92,6 @@ void ButtonHandler::handleUserButton() {
             // First click starts the timer
             if (clickCount == 0) {
                 firstClickTime = now;
-                Serial.println("\nUSER click sequence started...");
             }
 
             // Count click

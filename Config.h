@@ -73,14 +73,6 @@ namespace Config {
         constexpr unsigned long STEER_STROKE_MS   = 2000;
     }
 
-    namespace Run {
-        // Target wheel angle magnitude (deg) for each steer stroke
-        // endpoint in automatic run(). Closed-loop on the real encoder
-        // angle, not a fixed time, so strokes always end at the same
-        // physical angle and nothing drifts cycle over cycle.
-        constexpr float STEER_TARGET_DEG = 30.0f;
-    }
-
     namespace SerialPort {
         constexpr unsigned long BAUD = 115200;
     }

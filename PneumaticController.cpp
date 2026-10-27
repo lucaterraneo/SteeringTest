@@ -13,7 +13,12 @@ PneumaticController::PneumaticController(
     this->switchValve = switchValve;
     this->encoder = encoder;
 
+    buttons = nullptr;
     mode = 1;
+}
+
+void PneumaticController::attachButtons(ButtonHandler* buttons) {
+    this->buttons = buttons;
 }
 
 // Call this whenever RUNNING is (re-)entered (right next to

@@ -18,19 +18,28 @@ void PneumaticController::run() {
         case 1:
 
             steercount = count;
+            resistance -> stop();
+            steering -> stop();
+            if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
+
             switchValve -> extend();
-            waitKeepingEncoder(Config::Timing::SWITCH_PULSE_MS);
+            if (!waitKeepingEncoder(Config::Timing::SWITCH_PULSE_MS)) return;
             switchValve -> stop();
+
+            resistance -> stop();
+            steering -> stop();
+            if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
+
 
             while(steercount != 0) {
                 // steering left
                 steering -> retract();
                 // resistance right
                 resistance -> extend();
-                waitKeepingEncoder(Config::Timing::STEER_STROKE_MS);
+                if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
                 steering -> extend();
                 resistance -> retract();
-                waitKeepingEncoder(Config::Timing::STEER_STROKE_MS);
+                if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
 
                 steercount --;
             }
@@ -44,23 +53,31 @@ void PneumaticController::run() {
         case 2:
 
             steercount = count;
+            resistance -> stop();
+            steering -> stop();
+            if (!waitKeepingEncoder(3*Config::Timing::STEER_STROKE_MS)) return;
+
             switchValve -> retract();
-            waitKeepingEncoder(Config::Timing::SWITCH_PULSE_MS);
+            if (!waitKeepingEncoder(Config::Timing::SWITCH_PULSE_MS)) return;
             switchValve -> stop();
+
+            resistance -> stop();
+            steering -> stop();
+            if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
+
 
             while(steercount != 0){
                 // steering right
                 steering -> extend();
                 //resistance left
                 resistance -> retract();
-                waitKeepingEncoder(Config::Timing::STEER_STROKE_MS);
+                if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
                 steering -> retract();
                 resistance -> extend();
-                waitKeepingEncoder(Config::Timing::STEER_STROKE_MS);
+                if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
 
                 steercount --;
             }
-
             steercount = count;
             mode = 1;
 
@@ -69,10 +86,32 @@ void PneumaticController::run() {
     }
 }
 
-void PneumaticController::waitKeepingEncoder(unsigned long ms) {
+bool PneumaticController::waitKeepingEncoder(unsigned long ms) {
     unsigned long start = millis();
+    unsigned long lastPrint = start;
 
     while (millis() - start < ms) {
         encoder->update();
+
+        // Keep the START button alive even while run() is busy-waiting,
+        // so pressing it stops the whole sequence right away instead
+        // of being missed until run() eventually returns.
+        if (buttons) {
+            buttons->update();
+
+            if (!buttons->isRunning()) {
+                stopAll();
+                return false;
+            }
+        }
+
+        unsigned long now = millis();
+        if (now - lastPrint >= Config::Encoder::PRINT_MS) {
+            lastPrint = now;
+            Serial.print("E1 | Angle: ");
+            Serial.println(encoder->angleDeg(), 2);
+        }
     }
+
+    return true;
 }
