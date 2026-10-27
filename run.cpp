@@ -6,7 +6,7 @@
 //
 // Uses waitKeepingEncoder() instead of delay(): same blocking wait, but it
 // keeps sampling encoder->update() the whole time, so a fast stroke can't
-// lose quadrature counts just because run() is busy-waiting.
+// lose quadrature counts (angle) just because run() is busy-waiting.
 void PneumaticController::run() {
 
     int count = 3;
@@ -18,6 +18,8 @@ void PneumaticController::run() {
         case 1:
 
             steercount = count;
+
+            // release pneumatics to allow for a representative situation and switch
             resistance -> stop();
             steering -> stop();
             if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
@@ -26,6 +28,7 @@ void PneumaticController::run() {
             if (!waitKeepingEncoder(Config::Timing::SWITCH_PULSE_MS)) return;
             switchValve -> stop();
 
+            // release pneumatics just after switch has been actuated
             resistance -> stop();
             steering -> stop();
             if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
@@ -53,14 +56,17 @@ void PneumaticController::run() {
         case 2:
 
             steercount = count;
+
+            // release pneumatics to allow for a representative situation and switch
             resistance -> stop();
             steering -> stop();
-            if (!waitKeepingEncoder(3*Config::Timing::STEER_STROKE_MS)) return;
+            if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
 
             switchValve -> retract();
             if (!waitKeepingEncoder(Config::Timing::SWITCH_PULSE_MS)) return;
             switchValve -> stop();
 
+            // release pneumatics just after switch has been actuated
             resistance -> stop();
             steering -> stop();
             if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
