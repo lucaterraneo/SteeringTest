@@ -93,6 +93,10 @@ bool PneumaticController::waitKeepingEncoder(unsigned long ms) {
     while (millis() - start < ms) {
         encoder->update();
 
+        if (encoder2) {
+            encoder2->update();
+        }
+
         // Keep the START button alive even while run() is busy-waiting,
         // so pressing it stops the whole sequence right away instead
         // of being missed until run() eventually returns.
@@ -108,8 +112,17 @@ bool PneumaticController::waitKeepingEncoder(unsigned long ms) {
         unsigned long now = millis();
         if (now - lastPrint >= Config::Encoder::PRINT_MS) {
             lastPrint = now;
-            Serial.print("E1 | Angle: ");
-            Serial.println(encoder->angleDeg(), 2);
+            Serial.print("Angle E1: ");
+            Serial.print(encoder->angleDeg(), 2);
+            Serial.print(" °");
+
+            if (encoder2) {
+                Serial.print("  Angle E2: ");
+                Serial.print(encoder2->angleDeg(), 2);
+                Serial.print(" °");
+            }
+
+            Serial.println();
         }
     }
 

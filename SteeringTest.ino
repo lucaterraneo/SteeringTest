@@ -82,6 +82,9 @@ void setup() {
 
     if (Config::Encoder::USE_ENCODER2) {
         encoder2.begin();
+
+        // So run()'s blocking waits also keep sampling encoder2.
+        pneumatic.attachEncoder2(&encoder2);
     }
     Serial.println("put the backrest in the middle position and press start button again :)");
 }
@@ -156,6 +159,24 @@ void loop() {
             Serial.print(encoder2.angleDeg(), 2);
             Serial.print(" °");
         }
+
+        // Raw ADC levels (diagnostic): rotate each shaft by hand and
+        // confirm both rawA/rawB actually swing between the low and
+        // high thresholds. If E2's raw numbers don't move at all, it's
+        // a wiring/signal issue upstream of the code, not a firmware one.
+        Serial.print("  [raw A1:");
+        Serial.print(encoder1.rawA());
+        Serial.print(" B1:");
+        Serial.print(encoder1.rawB());
+
+        if (Config::Encoder::USE_ENCODER2) {
+            Serial.print("  A2:");
+            Serial.print(encoder2.rawA());
+            Serial.print(" B2:");
+            Serial.print(encoder2.rawB());
+        }
+
+        Serial.print("]");
 
         Serial.println();
     }

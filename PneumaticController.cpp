@@ -14,11 +14,16 @@ PneumaticController::PneumaticController(
     this->encoder = encoder;
 
     buttons = nullptr;
+    encoder2 = nullptr;
     mode = 1;
 }
 
 void PneumaticController::attachButtons(ButtonHandler* buttons) {
     this->buttons = buttons;
+}
+
+void PneumaticController::attachEncoder2(AmtEncoder* encoder2) {
+    this->encoder2 = encoder2;
 }
 
 // Call this whenever RUNNING is (re-)entered (right next to

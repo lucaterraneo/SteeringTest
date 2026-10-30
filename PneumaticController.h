@@ -15,6 +15,10 @@ private:
     DoubleSolenoid* switchValve;
     AmtEncoder* encoder;
 
+    // Set via attachEncoder2(), kept sampled and printed inside
+    // waitKeepingEncoder() alongside encoder. Null until attached.
+    AmtEncoder* encoder2;
+
     // Set via attachButtons(), checked inside waitKeepingEncoder() so
     // the START button still works even while run() is busy-waiting.
     // Null until attachButtons() is called.
@@ -60,6 +64,10 @@ public:
     // Call once from setup(), after both objects exist, so run()'s
     // waits can keep checking the START button.
     void attachButtons(ButtonHandler* buttons);
+
+    // Call once from setup(), when encoder2 is wired in, so run()'s
+    // waits also keep sampling and printing it.
+    void attachEncoder2(AmtEncoder* encoder2);
 
     void test(int command);
     void run();
