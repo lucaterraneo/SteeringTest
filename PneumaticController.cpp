@@ -26,7 +26,7 @@ void PneumaticController::attachButtons(ButtonHandler* buttons) {
 // from a previous run can't snap the valves into a new position as
 // soon as the loop resumes.
 void PneumaticController::resetRun() {
-    mode = 1;
+    mode = 2;
 }
 
 void PneumaticController::begin() {

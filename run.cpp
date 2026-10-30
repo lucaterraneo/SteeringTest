@@ -10,14 +10,48 @@
 void PneumaticController::run() {
 
     int count = 3;
-    int steercount;
+    int traditional_steercount;
+    int steering_steercount;
 
     switch(mode) {
 
         // mode = 1 --> TRADITIONAL (default in constructor of the pneumatic object, check PneumaticController.cpp)
         case 1:
 
-            steercount = count;
+            traditional_steercount = count-1; //2
+
+            // release pneumatics to allow for a representative situation and switch
+            resistance -> stop();
+            //steering -> stop();
+            if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
+
+            switchValve -> retract();
+            if (!waitKeepingEncoder(Config::Timing::SWITCH_PULSE_MS)) return;
+            switchValve -> stop();
+
+
+            while(traditional_steercount != 0) {
+                // steering left
+                steering -> extend();
+                // resistance right
+                resistance -> retract();
+                if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
+                steering -> retract();
+                resistance -> extend();
+                if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
+
+                traditional_steercount --;
+            }
+            traditional_steercount = count;
+            mode = 2;
+
+            break;
+
+
+        // mode = 2 --> STEERBYLEAN :)
+        case 2:
+
+            steering_steercount = count+2; //5
 
             // release pneumatics to allow for a representative situation and switch
             resistance -> stop();
@@ -28,51 +62,11 @@ void PneumaticController::run() {
             if (!waitKeepingEncoder(Config::Timing::SWITCH_PULSE_MS)) return;
             switchValve -> stop();
 
-            // release pneumatics just after switch has been actuated
-            resistance -> stop();
-            steering -> stop();
-            if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
-
-
-            while(steercount != 0) {
-                // steering left
-                steering -> retract();
-                // resistance right
-                resistance -> extend();
-                if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
-                steering -> extend();
-                resistance -> retract();
-                if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
-
-                steercount --;
-            }
-            steercount = count;
-            mode = 2;
-
-            break;
-
-
-        // mode = 2 --> STEERBYLEAN :)
-        case 2:
-
-            steercount = count;
-
-            // release pneumatics to allow for a representative situation and switch
-            resistance -> stop();
-            steering -> stop();
-            if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
-
-            switchValve -> retract();
+            // just one time resistance on to allow resistance on first steer :)
+            resistance -> retract();
             if (!waitKeepingEncoder(Config::Timing::SWITCH_PULSE_MS)) return;
-            switchValve -> stop();
 
-            // release pneumatics just after switch has been actuated
-            resistance -> stop();
-            steering -> stop();
-            if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
-
-
-            while(steercount != 0){
+            while(steering_steercount != 0){
                 // steering right
                 steering -> extend();
                 //resistance left
@@ -82,9 +76,9 @@ void PneumaticController::run() {
                 resistance -> extend();
                 if (!waitKeepingEncoder(Config::Timing::STEER_STROKE_MS)) return;
 
-                steercount --;
+                steering_steercount --;
             }
-            steercount = count;
+            steering_steercount = count;
             mode = 1;
 
             break;

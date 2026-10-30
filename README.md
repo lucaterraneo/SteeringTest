@@ -102,8 +102,8 @@ Software indices: **0 = first SSR**. The START LED is physical SSR **7** = index
 | START LED | 6 | physical SSR 7 |
 | USER button | `BTN_USER` | pull-up, active low |
 | START button | `A0` (I1, L1) | 24 V when pressed |
-| Encoder 1 X / A / B | `A1` / `A2` / `A3` | AMT103 on the front wheel shaft (in use) |
-| Encoder 2 X / A / B | `A4` / `A5` / `A6` | wired, unused (`USE_ENCODER2 = false`) |
+| Encoder 1 A / B / X | `A2` (I3) / `A3` (I4) / `A4` (I5) | AMT103 on the front wheel shaft (in use) |
+| Encoder 2 A / B / X | `A5` (I6) / `A6` (I7) / `A7` (I8) | AMT103, second shaft (in use, `USE_ENCODER2 = true`) |
 
 On each valve:
 
@@ -172,12 +172,12 @@ namespace Pins {
     constexpr int START_LED     = 6;   // physical SSR 7
     constexpr int USER_BUTTON   = BTN_USER;
     constexpr int START_BUTTON  = A0;
-    constexpr int ENC1_X        = A1;
-    constexpr int ENC1_A        = A2;
-    constexpr int ENC1_B        = A3;
-    constexpr int ENC2_X        = A4;
-    constexpr int ENC2_A        = A5;
-    constexpr int ENC2_B        = A6;
+    constexpr int ENC1_A        = A2;  // I3
+    constexpr int ENC1_B        = A3;  // I4
+    constexpr int ENC1_X        = A4;  // I5
+    constexpr int ENC2_A        = A5;  // I6
+    constexpr int ENC2_B        = A6;  // I7
+    constexpr int ENC2_X        = A7;  // I8
 }
 ```
 
@@ -186,7 +186,7 @@ namespace Pins {
 | Constant | Default | Use |
 |---|---|---|
 | `PPR` | 2048 | must match the AMT103 DIP switch |
-| `USE_ENCODER2` | false | second encoder wired but unused |
+| `USE_ENCODER2` | true | both encoders wired and sampled |
 | `HIGH_THRESHOLD` / `LOW_THRESHOLD` | 700 / 200 | hysteresis band (12-bit ADC) |
 | `PRINT_MS` | 50 | live Serial print period (does **not** throttle sampling — `encoder.update()` runs every `loop()` iteration) |
 

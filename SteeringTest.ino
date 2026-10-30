@@ -147,8 +147,16 @@ void loop() {
     if (now - lastAnglePrint >= Config::Encoder::PRINT_MS) {
         lastAnglePrint = now;
 
-        Serial.print("Angle: ");
+        Serial.print("Angle E1: ");
         Serial.print(encoder1.angleDeg(), 2);
-        Serial.println(" °");
+        Serial.print(" °");
+
+        if (Config::Encoder::USE_ENCODER2) {
+            Serial.print("  Angle E2: ");
+            Serial.print(encoder2.angleDeg(), 2);
+            Serial.print(" °");
+        }
+
+        Serial.println();
     }
 }

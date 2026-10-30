@@ -26,12 +26,12 @@ namespace Config {
         constexpr int START_BUTTON  = A0;  // I1, L1 Opta
 
         // AMT103, read as 0-10 V analog. X = index, once per turn.
-        constexpr int ENC1_X        = A1;  // I2
         constexpr int ENC1_A        = A2;  // I3
         constexpr int ENC1_B        = A3;  // I4
-        constexpr int ENC2_X        = A4;  // I5
+        constexpr int ENC1_X        = A4;  // I5
         constexpr int ENC2_A        = A5;  // I6
         constexpr int ENC2_B        = A6;  // I7
+        constexpr int ENC2_X        = A7;  // I8
     }
 
     namespace Encoder {
@@ -39,8 +39,8 @@ namespace Config {
         // Must match the DIP switch on the AMT103.
         constexpr int PPR = 2048;
 
-        // Encoder 2 is not wired yet.
-        constexpr bool USE_ENCODER2 = false;
+        // Both encoders are wired.
+        constexpr bool USE_ENCODER2 = true;
 
         // 12-bit reading: low is about 0, high is about 1400.
         // Hysteresis band so noise/vibration near the switching point
@@ -70,7 +70,7 @@ namespace Config {
         // How long one steering stroke needs to physically finish
         // before the next valve command is issued. Tune this to match
         // the real cylinder travel time on the rig.
-        constexpr unsigned long STEER_STROKE_MS   = 2000;
+        constexpr unsigned long STEER_STROKE_MS   = 1000;
     }
 
     namespace SerialPort {
